@@ -20,7 +20,9 @@ export function getAdminIdentityFromHeaders(headers: HeaderReader): AdminIdentit
     return { id: "admin-token", source: "token" };
   }
 
-  const cloudflareEmail = headers.get("cf-access-authenticated-user-email");
+  const cloudflareEmail = appEnv.trustCloudflareAccess
+    ? headers.get("cf-access-authenticated-user-email")
+    : null;
 
   if (cloudflareEmail) {
     return { id: cloudflareEmail, source: "cloudflare-access" };

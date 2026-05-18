@@ -14,6 +14,7 @@ export const appEnv = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET,
   adminToken: process.env.ADMIN_TOKEN,
+  trustCloudflareAccess: process.env.TRUST_CLOUDFLARE_ACCESS === "true",
   adminTelegramIds: csvList(process.env.ADMIN_TELEGRAM_IDS),
   contestTitle: process.env.CONTEST_TITLE?.trim() || "Instagram giveaway",
   instagramAccount1: normalizeConfiguredInstagramAccount(process.env.CONTEST_INSTAGRAM_1, "account_1"),
