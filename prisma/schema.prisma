@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ContestStatus {
+  draft
+  active
+  checking
+  finished
+  cancelled
+}
+
+enum EntryStatus {
+  pending
+  approved_start
+  approved_middle
+  approved_final
+  missing_account_1
+  missing_account_2
+  missing_both
+  not_found
+  not_eligible_final
+  winner_candidate
+  winner
+  rejected
+}
+
+enum CheckStage {
+  start
+  middle
+  final
+}
+
+enum CheckResult {
+  approved
+  missing_account_1
+  missing_account_2
+  missing_both
+  not_found
+}
+
+enum ParseStatus {
+  uploaded
+  parsed
+  failed
+}
+
+enum NotificationType {
+  middle_reminder
+  status_update
+  winner_message
+  admin_alert
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+}
+
+enum DrawStatus {
+  candidate
+  confirmed
+  rejected
+  published
+  redrawn
+}
+
+enum UserTelegramState {
+  idle
+  awaiting_instagram
+}
+
+model User {
+  id               String            @id @default(cuid())
+  telegramId       BigInt            @unique
+  telegramUsername String?
+  firstName        String?
+  lastName         String?
+  telegramState    UserTelegramState @default(idle)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  entries       ContestEntry[]
+  notifications Notification[]
+}
+
+model Contest {
+  id                String        @id @default(cuid())
+  title             String
+  instagramAccount1 String
+  instagramAccount2 String
+  status            ContestStatus @default(active)
+  startAt           DateTime?
+  middleCheckAt     DateTime?
+  finalCheckAt      DateTime?
+  drawAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  entries         ContestEntry[]
+  importBatches   ImportBatch[]
+  instagramChecks InstagramCheck[]
+  notifications   Notification[]
+  drawResults     DrawResult[]
+}
+
+model ContestEntry {
+  id                          String      @id @default(cuid())
+  contestId                   String
+  userId                      String
+  instagramUsername           String
+  normalizedInstagramUsername String
+  status                      EntryStatus @default(pending)
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime    @updatedAt
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  checks      InstagramCheck[]
+  drawResults DrawResult[]
+
+  @@unique([contestId, userId])
+  @@index([contestId, status])
+  @@index([normalizedInstagramUsername])
+}
+
+model ImportBatch {
+  id               String      @id @default(cuid())
+  contestId        String
+  stage            CheckStage
+  instagramAccount String
+  fileUrl          String?
+  fileName         String
+  uploadedBy       String?
+  uploadedAt       DateTime    @default(now())
+  followersCount   Int         @default(0)
+  followers         Json?
+  parseStatus      ParseStatus @default(uploaded)
+  parseError       String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  @@index([contestId, stage, instagramAccount, uploadedAt])
+}
+
+model InstagramCheck {
+  id              String      @id @default(cuid())
+  contestId       String
+  entryId         String
+  stage           CheckStage
+  foundInAccount1 Boolean
+  foundInAccount2 Boolean
+  result          CheckResult
+  checkedAt       DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+
+  contest Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  entry   ContestEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([contestId, stage])
+  @@index([entryId, stage])
+}
+
+model Notification {
+  id                String             @id @default(cuid())
+  contestId         String
+  userId            String
+  type              NotificationType
+  text              String
+  sentAt            DateTime?
+  telegramMessageId BigInt?
+  status            NotificationStatus @default(pending)
+  createdAt         DateTime           @default(now())
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([contestId, type, status])
+}
+
+model DrawResult {
+  id            String     @id @default(cuid())
+  contestId     String
+  winnerEntryId String
+  eligibleCount Int
+  seed          String?
+  eligibleIds   Json?
+  drawnAt       DateTime   @default(now())
+  confirmedAt   DateTime?
+  publishedAt   DateTime?
+  status        DrawStatus @default(candidate)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  contest     Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  winnerEntry ContestEntry @relation(fields: [winnerEntryId], references: [id], onDelete: Restrict)
+
+  @@index([contestId, status])
+}
